@@ -38,10 +38,10 @@ for i in range(len(rev_data)):
 # hard to derive two classes out of one class...
 
 # ====use 5 labels=================================================
-tfvec1 = TfidfVectorizer()
+tfvec = TfidfVectorizer()
 tfvec1_3 = TfidfVectorizer(ngram_range=(1, 3))
 
 # mark negation
 rev_mkn = [mark_negation(nltk.word_tokenize(i)) for i in rev_data.text]
 
-tfvec.fit()
+tfvec.fit(rev_mkn)
