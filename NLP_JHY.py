@@ -49,7 +49,15 @@ tfvec.fit(pd.Series(rev_mkn))
 # =====================================================================
 # bus_sp = [busi_data.categories[i].split(", ") for i in range(busi_data.shape[0])
 # if busi_data.categories[i] is not None]
-bus_sp = [nltk.word_tokenize(busi_data.categories[i]) for i in range(busi_data.shape[0]) if busi_data.categories[i] is not None]
-brun_id = [i for i in range(len(bus_sp)) if 'Brunch' in bus_sp[i]]
-brun_data = busi_data.iloc[brun_id, ].reset_index(drop=True)
+bus_sp = []
+for i in range(busi_data.shape[0]):
+    if busi_data.categories[i] is not None:
+        bus_sp.append(nltk.word_tokenize(busi_data.categories[i]))
+    else:
+        bus_sp.append('0')
+
+# bus_sp = [nltk.word_tokenize(busi_data.categories[i]) for i in range(busi_data.shape[0]) if busi_data.categories[i] is not None]
+brun_id = [i for i in range(len(bus_sp)) if 'Brunch' in bus_sp[i]] # 160796
+brun_data = busi_data.iloc[brun_id, ]
 brun_rev = rev_data.loc[rev_data.business_id.isin(brun_data.business_id)].reset_index(drop=True)
+
