@@ -4,6 +4,10 @@
 *.zip
 *.docx
 *.iml
-*tutor*
-*.pdf
 .Rproj.user
+*.pdf
+*.Rproj
+*_sample*
+*.Rhistory
+*.csv
+*.png
