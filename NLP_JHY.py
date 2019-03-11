@@ -10,13 +10,14 @@ from nltk.corpus import wordnet
 from nltk.corpus import stopwords
 from multiprocessing import Pool
 import re
+import time
 
 # =====read data===============================================
 # bdata = open(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\business_train.json').read()
 busi_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\business_train.json', orient='records', lines=True)
 # busi_data.columns: Index(['attributes', 'business_id', 'categories', 'city', 'hours', 'is_open',
 #                           'latitude', 'longitude', 'name', 'postal_code', 'state'], dtype='object')
-rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\review_train.json', lines=True, orient='records')
+rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\review_sample.json', lines=True, orient='records')
 # rev_data.columns: Index(['business_id', 'date', 'stars', 'text'], dtype='object')
 
 # check dist.
@@ -32,6 +33,12 @@ c_tk = [mark_negation(rev) for rev in c_tk]
 
 
 # =====lemmatizer=============================================================
+# ==========test=============================================================
+poter = PorterStemmer()
+lmtzr = WordNetLemmatizer()
+
+
+# ==========official=======================================================
 def wordnet_pos(x):
     if x.startswith('V'):
         return wordnet.VERB
@@ -44,30 +51,39 @@ def wordnet_pos(x):
 def sent_lmt(x):   # have trouble with double negation
     x = re.sub(',', '.', x)
     lmtzer = WordNetLemmatizer()
-    word_tag = nltk.pos_tag(nltk.word_tokenize(x))
-    lmt_word = [lmtzer.lemmatize(i_pair[0], pos=wordnet_pos(i_pair[1])) for i_pair in word_tag]
+    word_tag = nltk.word_tokenize(x)
+    lmt_word = [lmtzer.lemmatize(i_pair, pos='v') for i_pair in word_tag]
     lmt_word = mark_negation(lmt_word)
     sent = ' '.join(lmt_word)
     return sent
 
 
+def sent_stm(x):
+    x = re.sub(',', '.', x)
+    porter = PorterStemmer()
+    word_list = nltk.word_tokenize(x)
+    stm_word = [porter.stem(i) for i in word_list]
+    stm_word = mark_negation(stm_word)
+    sent = ' '.join(stm_word)
+    return sent
+
+
+# ============================================================================================
 for i in range(rev_data.shape[0]):
     rev_data.text.iloc[i] = sent_lmt(rev_data.text.iloc[i])
     if i % 100 == 0:
         print('%d / %d' % (i, rev_data.shape[0]))
 
-toy_sample = rev_data.iloc[0:10, ].copy()
+toy_sample = rev_data.iloc[0:10000, ].copy()
 toy_sample.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\toy.csv', index=False)
-for i in range(10):
-    toy_sample.text.iloc[i] = sent_lmt(toy_sample.text.iloc[i])
+x = toy_sample.text.iloc[0]
+
 
 # =====mark negation================================================================
 
 rev_mkn = [mark_negation(nltk.word_tokenize(i)) for i in rev_data.text]
 rev_mkn = [" ".join(rev) for rev in rev_mkn]
 # ======find burnch review===============================================================
-# bus_sp = [busi_data.categories[i].split(", ") for i in range(busi_data.shape[0])
-# if busi_data.categories[i] is not None]
 bus_sp = []
 for i in range(busi_data.shape[0]):
     if busi_data.categories[i] is not None:
@@ -75,8 +91,7 @@ for i in range(busi_data.shape[0]):
     else:
         bus_sp.append('0')
 
-# bus_sp = [nltk.word_tokenize(busi_data.categories[i]) for i in range(busi_data.shape[0])
-# if busi_data.categories[i] is not None]
+
 brun_id = [i for i in range(len(bus_sp)) if 'Brunch' in bus_sp[i]] # 160796
 brun_data = busi_data.iloc[brun_id, ]
 brun_rev = rev_data.loc[rev_data.business_id.isin(brun_data.business_id)].reset_index(drop=True)
