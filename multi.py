@@ -9,7 +9,7 @@ import re
 import time
 from langdetect import detect
 
-rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\review_sample.json', lines=True, orient='records')
+rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\review_train.json', lines=True, orient='records')
 
 
 def wordnet_pos(x):
@@ -55,15 +55,10 @@ def ind_en(data):
 
 
 if __name__ == '__main__':
-    print('start language')
-    start = time.time()
-    rev_data = parallelize_dataframe(rev_data, ind_en)
-    end = time.time()
-    print(end - start)
     print('start cleaning')
     start = time.time()
     rev_data = parallelize_dataframe(rev_data, multi_rev)
     end = time.time()
     print('done')
     print(end - start)
-    rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\sample_post2.csv', index=False)
+    rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_post.csv', index=False)
