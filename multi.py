@@ -9,6 +9,8 @@ import re
 import time
 from langdetect import detect
 
+rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\review_sample.json', lines=True, orient='records')
+
 
 def wordnet_pos(x):
     if x.startswith('V'):
@@ -52,21 +54,16 @@ def ind_en(data):
     return data
 
 
-for i in range(9):
-    rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev0' + str(i), lines=True,
-                            orient='records')
-    print('done reading' + str(i))
-
-    if __name__ == '__main__':
-        print('start finding en' + str(i))
-        start = time.time()
-        rev_data = parallelize_dataframe(rev_data, ind_en)
-        end = time.time()
-        print(end - start)
-        print('start cleaning' + str(i))
-        start = time.time()
-        rev_data = parallelize_dataframe(rev_data, multi_rev)
-        end = time.time()
-        print('done')
-        print(end - start)
-        rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_post0' + str(i) + '.csv', index=False)
+if __name__ == '__main__':
+    print('start language')
+    start = time.time()
+    rev_data = parallelize_dataframe(rev_data, ind_en)
+    end = time.time()
+    print(end - start)
+    print('start cleaning')
+    start = time.time()
+    rev_data = parallelize_dataframe(rev_data, multi_rev)
+    end = time.time()
+    print('done')
+    print(end - start)
+    rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\sample_post2.csv', index=False)
