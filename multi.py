@@ -7,9 +7,6 @@ from nltk.corpus import wordnet
 from multiprocessing import Pool
 import re
 import time
-from langdetect import detect
-
-rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\review_train.json', lines=True, orient='records')
 
 
 def wordnet_pos(x):
@@ -36,7 +33,7 @@ def multi_rev(data):
     return data
 
 
-num_cores = 12  # number of cores on your machine
+num_cores = 4  # number of cores on your machine
 
 
 def parallelize_dataframe(df, func):
@@ -48,17 +45,17 @@ def parallelize_dataframe(df, func):
     return df
 
 
-def ind_en(data):
-    ind = [detect(data.text.iloc[j]) for j in range(rev_data.shape[0])] == 'en'
-    data = data.loc[ind, ]
-    return data
-
-
 if __name__ == '__main__':
-    print('start cleaning')
-    start = time.time()
-    rev_data = parallelize_dataframe(rev_data, multi_rev)
-    end = time.time()
-    print('done')
-    print(end - start)
-    rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_post.csv', index=False)
+    for i in range(3):
+        rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev0' + str(i), lines=True,
+                                orient='records')
+        print('done reading ' + str(i))
+
+        print('start cleaning ' + str(i))
+        start = time.time()
+        rev_data = parallelize_dataframe(rev_data, multi_rev)
+        end = time.time()
+        print('done')
+        print(end - start)
+        rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_post0' + str(i) + '.csv', index=False)
+        del rev_data

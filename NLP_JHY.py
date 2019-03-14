@@ -10,7 +10,9 @@ from nltk.corpus import wordnet
 from nltk.corpus import stopwords
 from multiprocessing import Pool
 import re
-import time
+import ast
+import sys
+from sklearn.feature_selection import SelectKBest
 
 # =====read data===============================================
 # bdata = open(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\business_train.json').read()
@@ -92,7 +94,7 @@ for i in range(busi_data.shape[0]):
         bus_sp.append('0')
 
 
-brun_id = [i for i in range(len(bus_sp)) if 'Brunch' in bus_sp[i]] # 160796
+brun_id = [i for i in range(len(bus_sp)) if 'Brunch' in bus_sp[i]]  # 160796
 brun_data = busi_data.iloc[brun_id, ]
 brun_rev = rev_data.loc[rev_data.business_id.isin(brun_data.business_id)].reset_index(drop=True)
 
@@ -101,4 +103,44 @@ brun_rev = rev_data.loc[rev_data.business_id.isin(brun_data.business_id)].reset_
 # compare difference in attributes
 brun_sc = [np.mean(brun_rev.stars[brun_rev.business_id == i]) for i in brun_data.business_id]
 brun_ct = [np.sum(brun_rev.business_id == i) for i in brun_data.business_id]
-# =====clean daata==============================================================
+
+# =====attribute clean daata==============================================================
+atb = busi_data.attributes
+a = [dict(key=value) for key, value in atb[1].items()]
+
+
+def slice_dict(x):
+    out = {}
+    for key, value in x.items():
+        if type(value) is str:
+            value = ast.literal_eval(value)
+        if type(value) is dict:
+            out = dict(out, **slice_dict(value))
+        else:
+            out[key] = value
+    return out
+
+
+def sum_dict(x):
+    out = {}
+    if x is None:
+        out = None
+    else:
+        for key, value in x.items():
+            if type(value) is str:
+                value = ast.literal_eval(value)
+            if type(value) is dict:
+                value = sum(list(value.values()))
+            out[key] = value
+    return out
+
+
+x = atb[10]
+key, value = list(x.items())[3]
+x0 = slice_dict(x)
+x1 = sum_dict(x)
+[print(sys.getsizeof(i)) for i in [x, x0, x1]]
+
+
+
+
