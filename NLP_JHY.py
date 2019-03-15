@@ -8,7 +8,6 @@ from nltk.stem import PorterStemmer
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from nltk.corpus import wordnet
 from nltk.corpus import stopwords
-from multiprocessing import Pool
 import re
 import ast
 import sys
