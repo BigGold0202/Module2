@@ -7,6 +7,9 @@ from nltk.corpus import wordnet
 from multiprocessing import Pool
 import re
 import time
+from nltk.corpus import stopwords
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+
 
 
 def wordnet_pos(x):
@@ -16,21 +19,29 @@ def wordnet_pos(x):
         return wordnet.NOUN
 
 
-def sent_lmt(x):   # have trouble with double negation, input a df
+def sent_tokenize(x):   # have trouble with double negation, input a df
+    stopword = set(stopwords.words('english')) - {'he', 'him', 'his', 'himself',
+                                                  'she', 'her', "she's", 'her', 'hers', 'herself',
+                                                  'they', 'them', 'their', 'theirs', 'themselves'}
+    lmtzer = WordNetLemmatizer()
+    # tokenizer = RegexpTokenizer(r'\w+')
     x = x.lower()
     x = re.sub(',', '.', x)
-    lmtzer = WordNetLemmatizer()
-    word_tag = nltk.pos_tag(nltk.word_tokenize(x))
+    # word = tokenizer.tokenize(x)
+    word = nltk.word_tokenize(x)
+    word = mark_negation(word)
+    word = [i for i in word if i not in stopword]
+    word_tag = nltk.pos_tag(word)
     lmt_word = [lmtzer.lemmatize(i_pair[0], pos=wordnet_pos(i_pair[1])) for i_pair in word_tag]
-    lmt_word = mark_negation(lmt_word)
-    sent = ' '.join(lmt_word)
-    x = sent
-    return x
+    return lmt_word
 
 
 def multi_rev(data):
-    data.text = data.text.apply(sent_lmt)
-    return data
+    vec = CountVectorizer(tokenizer=sent_tokenize)
+    out = vec.fit_transform(data.text)
+    out = pd.DataFrame(out.toarray())
+    out.columns = vec.get_feature_names()
+    return out
 
 
 num_cores = 4  # number of cores on your machine
