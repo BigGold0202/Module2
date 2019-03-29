@@ -11,7 +11,6 @@ from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 
 
-
 def wordnet_pos(x):
     if x.startswith('V'):
         return wordnet.VERB
@@ -57,16 +56,15 @@ def parallelize_dataframe(df, func):
 
 
 if __name__ == '__main__':
-    for i in range(3):
-        rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev0' + str(i), lines=True,
-                                orient='records')
-        print('done reading ' + str(i))
+    rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\review_sample.json', lines=True,
+                            orient='records')
+    print('done reading ')
 
-        print('start cleaning ' + str(i))
-        start = time.time()
-        rev_data = parallelize_dataframe(rev_data, multi_rev)
-        end = time.time()
-        print('done')
-        print(end - start)
-        rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_post0' + str(i) + '.csv', index=False)
-        del rev_data
+    print('start cleaning ')
+    start = time.time()
+    rev_data = parallelize_dataframe(rev_data, multi_rev)
+    end = time.time()
+    print('done')
+    print(end - start)
+    rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\sample_count.csv', index=False)
+
