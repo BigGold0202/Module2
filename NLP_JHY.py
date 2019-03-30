@@ -11,7 +11,10 @@ from nltk.corpus import stopwords
 import re
 import ast
 import sys
-from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import SelectKBest, chi2
+from nltk.tokenize import RegexpTokenizer
+from multi_cleaning import sent_tokenize
+import string
 
 # =====read data===============================================
 # bdata = open(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\business_train.json').read()
@@ -33,42 +36,33 @@ c_tk = [nltk.word_tokenize(rev) for rev in c]
 c_tk = [mark_negation(rev) for rev in c_tk]
 
 
-# =====lemmatizer=============================================================
-# ==========test=============================================================
-poter = PorterStemmer()
-lmtzr = WordNetLemmatizer()
-
-
 # ==========official=======================================================
 def wordnet_pos(x):
     if x.startswith('V'):
         return wordnet.VERB
-    elif x.startswith('R'):
-        return wordnet.ADV
     else:
         return wordnet.NOUN
 
 
-def sent_lmt(x):   # have trouble with double negation
+stopword = set(stopwords.words('english')) - {'he', 'him', 'his', 'himself',
+                                              'she', 'her', "she's", 'her', 'hers', 'herself',
+                                              'they', 'them', 'their', 'theirs', 'themselves'}
+lmtzer = WordNetLemmatizer()
+tokenizer = RegexpTokenizer(r'\w+')
+
+
+def sent_lmt(x):   # have trouble with double negation, input a df
+    x = x.lower()
     x = re.sub(',', '.', x)
-    lmtzer = WordNetLemmatizer()
-    word_tag = nltk.word_tokenize(x)
-    lmt_word = [lmtzer.lemmatize(i_pair, pos='v') for i_pair in word_tag]
+    word = tokenizer.tokenize(x)
+    word = [i for i in word if i not in stopword]
+    word_tag = nltk.pos_tag(word)
+    lmt_word = [lmtzer.lemmatize(i_pair[0], pos=wordnet_pos(i_pair[1])) for i_pair in word_tag]
     lmt_word = mark_negation(lmt_word)
-    sent = ' '.join(lmt_word)
-    return sent
+    return lmt_word
 
 
-def sent_stm(x):
-    x = re.sub(',', '.', x)
-    porter = PorterStemmer()
-    word_list = nltk.word_tokenize(x)
-    stm_word = [porter.stem(i) for i in word_list]
-    stm_word = mark_negation(stm_word)
-    sent = ' '.join(stm_word)
-    return sent
-
-
+x = "he doesn't like it, but he likes that. he doesn't like it anyway"
 # ============================================================================================
 for i in range(rev_data.shape[0]):
     rev_data.text.iloc[i] = sent_lmt(rev_data.text.iloc[i])
@@ -81,9 +75,6 @@ x = toy_sample.text.iloc[0]
 
 
 # =====mark negation================================================================
-
-rev_mkn = [mark_negation(nltk.word_tokenize(i)) for i in rev_data.text]
-rev_mkn = [" ".join(rev) for rev in rev_mkn]
 # ======find burnch review===============================================================
 bus_sp = []
 for i in range(busi_data.shape[0]):
@@ -110,13 +101,16 @@ a = [dict(key=value) for key, value in atb[1].items()]
 
 def slice_dict(x):
     out = {}
-    for key, value in x.items():
-        if type(value) is str:
-            value = ast.literal_eval(value)
-        if type(value) is dict:
-            out = dict(out, **slice_dict(value))
-        else:
-            out[key] = value
+    if x is None:
+        out = None
+    else:
+        for key, value in x.items():
+            if type(value) is str:
+                value = ast.literal_eval(value)
+            if type(value) is dict:
+                out = dict(out, **slice_dict(value))
+            else:
+                out[key] = value
     return out
 
 
@@ -139,6 +133,58 @@ key, value = list(x.items())[3]
 x0 = slice_dict(x)
 x1 = sum_dict(x)
 [print(sys.getsizeof(i)) for i in [x, x0, x1]]
+
+
+def atb_process(x, method):
+    if method == 'slice':
+        atb_slice = [pd.DataFrame(slice_dict(i), index=[0]) for i in x]
+        atb_slice_df = pd.concat(atb_slice, sort='False')
+        slice_stat = pd.Series([np.mean(atb_slice_df.iloc[:, i].notnull()) for i in range(atb_slice_df.shape[1])])
+        slice_stat.index = atb_slice_df.columns
+        slice_stat.sort_values(ascending=False, inplace=True)
+        return atb_slice_df, slice_stat
+    if method == 'sum':
+        atb_sum = [pd.DataFrame(sum_dict(i), index=[0]) for i in x]
+        atb_sum_df = pd.concat(atb_sum, sort='False')
+        sum_stat = pd.Series([np.mean(atb_sum_df.iloc[:, i].notnull()) for i in range(atb_sum_df.shape[1])])
+        sum_stat.index = atb_sum_df.columns
+        sum_stat.sort_values(ascending=False, inplace=True)
+        return atb_sum_df, sum_stat
+
+
+brun_slice, brun_slice_stat = atb_process(brun_data.attributes, 'slice')
+brun_sum, brun_sum_stat = atb_process(brun_data.attributes, 'sum')
+
+
+# =====================================================================
+SelectKBest(chi2, k=20).fit_transform()
+x = "At eight o'clock on Thursday morning Arthur didn't feel very good. French-Fries. he doesn't like it, but he likes that. he doesn't like it anyway"
+
+
+def split_token(x):
+    return x.split(' ')
+
+
+rev_data = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\sample_clean.csv')
+vec = CountVectorizer(tokenizer=split_token)
+counts = vec.fit_transform(rev_data.text)
+counts_sum = np.array(counts.sum(axis=0))[0]
+counts = counts[:, counts_sum >= 10]  # np.quantile(counts_sum, 0.8) = 5
+
+# counts_01 = counts
+# counts_ind = counts.nonzero()
+# counts_01[counts_ind] = 1
+
+
+counts_columns = np.array(vec.get_feature_names())[counts_sum >= 10]
+star = rev_data.stars
+
+chi_select = SelectKBest(chi2, k=2000)
+
+chi_count = chi_select.fit_transform(counts, star)
+ind = chi_select.get_support()
+chi_columns = counts_columns[ind]
+
 
 
 
