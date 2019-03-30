@@ -8,7 +8,6 @@ from multiprocessing import Pool
 import re
 import time
 from nltk.corpus import stopwords
-from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 
 
 def wordnet_pos(x):
@@ -32,18 +31,16 @@ def sent_tokenize(x):   # have trouble with double negation, input a df
     word = [i for i in word if i not in stopword]
     word_tag = nltk.pos_tag(word)
     lmt_word = [lmtzer.lemmatize(i_pair[0], pos=wordnet_pos(i_pair[1])) for i_pair in word_tag]
+    lmt_word = " ".join(lmt_word)
     return lmt_word
 
 
 def multi_rev(data):
-    vec = CountVectorizer(tokenizer=sent_tokenize)
-    out = vec.fit_transform(data.text)
-    out = pd.DataFrame(out.toarray())
-    out.columns = vec.get_feature_names()
-    return out
+    data.text = data.text.apply(sent_tokenize)
+    return data
 
 
-num_cores = 4  # number of cores on your machine
+num_cores = 10  # number of cores on your machine
 
 
 def parallelize_dataframe(df, func):
@@ -66,5 +63,4 @@ if __name__ == '__main__':
     end = time.time()
     print('done')
     print(end - start)
-    rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\sample_count.csv', index=False)
-
+    rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\sample_cleancsv', index=False)
