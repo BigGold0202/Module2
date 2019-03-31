@@ -41,6 +41,7 @@ def sent_tokenize(x):   # have trouble with double negation, input a df
     lmtzer = WordNetLemmatizer()
     x = x.lower()
     temp = re.sub("\,",'.',x)
+    temp = re.sub('n\'t',' not',temp)
     word = re.findall('[a-zA-Z]+|:\)|\.\.\.+|[!]+|\!\?|\.',temp)
     word = mark_negation(word)
     #word = [i for i in word if i not in stopword]
