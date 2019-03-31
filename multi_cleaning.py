@@ -18,25 +18,26 @@ def wordnet_pos(x):
 
 
 def sent_tokenize(x):   # have trouble with double negation, input a df
-    stopword = stopwords.words('english') + [':', '-', '>', ')', ';', '[', '"', '*', '!', '~',
-                                             "'", '^', '=', '%', '<', '_', '@', '+', '`', '#',
-                                             '{', '?', ']', '|', '/', '\\', '$', '&', '}', '(',
-                                             '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-    stopword = set(stopword) - {'he', 'him', 'his', 'himself',
-                                'she', 'her', "she's", 'her', 'hers', 'herself',
-                                'they', 'them', 'their', 'theirs', 'themselves'}
+    stopword = set(stopwords.words('english')) - {'he', 'him', 'his', 'himself', 'not', 'no', 'nor',
+                                                  'she', 'her', "she's", 'her', 'hers', 'herself',
+                                                  'they', 'them', 'their', 'theirs', 'themselves'}
 
     lmtzer = WordNetLemmatizer()
     # tokenizer = RegexpTokenizer(r'\w+')
     x = x.lower()
-    x = re.sub(',', '.', x)
+    temp = re.sub(",", '.', x)
+    temp = re.sub('n\'t', ' not', temp)
+    word = re.findall('[a-zA-Z]+|:\)|\.\.\.+|[!]+|\!\?|\.', temp)
+    # x = re.sub(',', '.', x)
     # word = tokenizer.tokenize(x)
-    word = nltk.word_tokenize(x)
-    word = mark_negation(word)
+    # word = nltk.word_tokenize(x)
     word = [i for i in word if i not in stopword]
+    word = mark_negation(word)
+
     word_tag = nltk.pos_tag(word)
     lmt_word = [lmtzer.lemmatize(i_pair[0], pos=wordnet_pos(i_pair[1])) for i_pair in word_tag]
-    lmt_word = re.sub("n't", 'not', " ".join(lmt_word))
+    # lmt_word = re.sub("n't", 'not', " ".join(lmt_word))
+    lmt_word = " ".join(lmt_word)
     return lmt_word
 
 
@@ -58,17 +59,20 @@ def parallelize_dataframe(df, func):
 
 
 if __name__ == '__main__':
-    rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\review_test.json', lines=True,
-                            orient='records')
-    print('done reading ')
+    for i in range(9):
+        rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev0' + str(i), lines=True,
+                                orient='records')
+        print('done reading ' + str(i))
 
-    print('start cleaning ')
-    start = time.time()
-    rev_data = parallelize_dataframe(rev_data, multi_rev)
-    end = time.time()
-    print('done')
-    print(end - start)
-    rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\test_clean.csv', index=False)
+        print('start cleaning ' + str(i))
+        start = time.time()
+        rev_data = parallelize_dataframe(rev_data, multi_rev)
+        end = time.time()
+        print('done ' + str(i))
+        print(end - start)
+        rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clean' + str(i) + '.csv', index=False)
+        del rev_data
+
 
 
 
