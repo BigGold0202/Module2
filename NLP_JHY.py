@@ -15,6 +15,11 @@ from sklearn.feature_selection import SelectKBest, chi2
 from nltk.tokenize import RegexpTokenizer
 from multi_cleaning import sent_tokenize
 import string
+from sklearn.feature_selection import mutual_info_classif
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
+from sklearn.preprocessing import scale, Normalizer
 
 # =====read data===============================================
 # bdata = open(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\business_train.json').read()
@@ -156,36 +161,151 @@ brun_slice, brun_slice_stat = atb_process(brun_data.attributes, 'slice')
 brun_sum, brun_sum_stat = atb_process(brun_data.attributes, 'sum')
 
 
-# =====================================================================
-SelectKBest(chi2, k=20).fit_transform()
-x = "At eight o'clock on Thursday morning Arthur didn't feel very good. French-Fries. he doesn't like it, but he likes that. he doesn't like it anyway"
-
-
+# =====Selcetion================================================================
 def split_token(x):
     return x.split(' ')
 
 
-rev_data = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\sample_clean.csv')
-vec = CountVectorizer(tokenizer=split_token)
+rev_data = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\sample_clean.csv', nrows=10000)
 counts = vec.fit_transform(rev_data.text)
 counts_sum = np.array(counts.sum(axis=0))[0]
-counts = counts[:, counts_sum >= 10]  # np.quantile(counts_sum, 0.8) = 5
+counts = counts[:, counts_sum >= np.quantile(counts_sum, 0.8)]  # np.quantile(counts_sum, 0.8) = 5
 
-# counts_01 = counts
-# counts_ind = counts.nonzero()
-# counts_01[counts_ind] = 1
+counts_01 = counts
+counts_ind = counts.nonzero()
+counts_01[counts_ind] = 1
 
 
-counts_columns = np.array(vec.get_feature_names())[counts_sum >= 10]
+counts_columns = np.array(vec.get_feature_names())[counts_sum >= np.quantile(counts_sum, 0.8)]
 star = rev_data.stars
 
-chi_select = SelectKBest(chi2, k=2000)
-
+chi_select = SelectKBest(chi2, k=200)
 chi_count = chi_select.fit_transform(counts, star)
-ind = chi_select.get_support()
-chi_columns = counts_columns[ind]
+chi_columns = counts_columns[chi_select.get_support()]
+
+chi_select, chi_p = chi2(counts, star)
+chi_res = pd.DataFrame({'word': counts_columns, 'score': chi_select, 'p-value': chi_p})
+chi_res = chi_res.sort_values(by='score', ascending=False).iloc[:200, :]
+
+minfo = mutual_info_classif(counts, star, discrete_features=True)
+minfo_res = pd.DataFrame({'word': counts_columns, 'minfo': minfo})
+minfo_res = minfo_res.sort_values(by='minfo', ascending=False).iloc[:200, :]
+
+rf = RandomForestClassifier()
+rf.fit(counts, star)
+rf_res = pd.DataFrame({'word': counts_columns, 'rf_score': rf.feature_importances_})
+rf_res = rf_res.sort_values(by='rf_score', ascending=False).iloc[:200, :]
+
+# =====bi gram=============================================================================
+vec2 = CountVectorizer(ngram_range=(2, 2), max_features=2000)
+bicounts = vec2.fit_transform(rev_data.text)
+bi_column = vec2.get_feature_names()
+bi_sum = np.array(bicounts.sum(axis=0))[0]
+bi_res = pd.DataFrame({'word': bi_column, 'counts': bi_sum})
+bi_res.sort_values(by='counts', inplace=True, ascending=False)
 
 
+# =====test/train counts==============================================================================
+rev_test = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\test_clean.csv')
+rev_test.text[rev_test.text.isna()] = 'na'
+
+rev_train = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clean.csv', low_memory=False)
+rev_train.text[rev_train.text.isna()] = 'na'
+star = rev_train.stars
+
+vec = CountVectorizer(tokenizer=split_token, stop_words=['.', 'not'])
+test_ct = vec.fit_transform(rev_test.text)
+test_ct_word = vec.get_feature_names()
+test_ct_sum = np.array(test_ct.mean(axis=0))[0]
+# plt.hist(test_ct_sum[(0.001> test_ct_sum) & (test_ct_sum>0.0001)])
+test_ct_res = pd.DataFrame({'word': test_ct_word, 'count_sum': test_ct_sum})
+test_ct_res.sort_values(by='count_sum', ascending=False, inplace=True)
+# np.quantile(test_count_sum, [0.85, 0.9, 0.95, 0.96, 0.975]) = 7, 14, 53, 80, 191
+# ind = test_ct_sum > np.quantile(test_ct_sum, n)
+
+ind = test_ct_sum >= 0.0005
+test_ct = test_ct[:, ind]
+test_ct_word = np.array(test_ct_word)[ind]
+np.savetxt('test_ct_word.csv', test_ct_word, header='word', fmt='%s')
+del test_ct_sum
+
+test_ct_word = np.array(pd.read_csv('test_ct_word.csv')).reshape(-1)
+train_ct = vec.fit_transform(rev_train.text)
+train_ct_word = vec.get_feature_names()
+
+tfi = TfidfVectorizer(tokenizer=split_token, stop_words=['.', 'not'])
+train_tfi = tfi.fit_transform(rev_train.text)
+train_tfi_word = tfi.get_feature_names()
+
+del rev_train
+
+test_word = np.array(list(set(test_ct_word) & set(train_ct_word)))
+
+ind = np.isin(train_ct_word, test_word)
+train_ct = train_ct[:, ind]
+train_ct_word = np.array(train_ct_word)[ind]
 
 
+# ===============test/train tfidf===========================================================
+test_tfi = tfi.fit_transform(rev_test.text)
+test_tfi_word = tfi.get_feature_names()
+ind = np.isin(test_tfi_word, test_word)
+test_tfi = test_tfi[:, ind]
+test_tfi_word = np.array(test_tfi_word)[ind]
+
+
+ind = np.isin(train_tfi_word, test_word)
+train_tfi = train_tfi[:, ind]
+train_tfi_word = np.array(train_tfi_word)[ind]
+
+
+# ======training selection==========================================================================
+def var_selection(stat, word, n):
+
+    chi_select, chi_p = chi2(stat, star)
+    chi_res = pd.DataFrame({'word': word, 'score': chi_select, 'p-value': chi_p})
+    chi_res = chi_res.sort_values(by='score', ascending=False).iloc[:n, :]
+    print('done chi')
+
+    '''minfo = mutual_info_classif(stat, star, discrete_features=True)
+    minfo_res = pd.DataFrame({'word': word, 'minfo': minfo})
+    minfo_res = minfo_res.sort_values(by='minfo', ascending=False).iloc[:n, :]
+    print('done minfo')
+
+    rf = RandomForestClassifier()
+    rf.fit(stat, star)
+    rf_res = pd.DataFrame({'word': word, 'rf_score': rf.feature_importances_})
+    rf_res = rf_res.sort_values(by='rf_score', ascending=False).iloc[:n, :]
+    print('done rf')'''
+
+    return chi_res  # , minfo_res, rf_res
+
+
+train_ct_chi = var_selection(train_ct, train_ct_word, 2000)
+final_word = train_ct_chi.word
+
+ind = np.isin(train_ct_word, final_word)
+train_ct = train_ct[:, ind]
+train_ct_word = train_ct_word[ind]
+
+ind = np.isin(train_tfi_word, final_word)
+train_tfi = train_tfi[:, ind]
+train_tfi_word = train_tfi_word[ind]
+
+# =====Modeling===========================================================================
+xtrain_ct, xvalid_ct, ytrain, yvalid = train_test_split(train_ct, star,
+                                                        stratify=star,
+                                                        random_state=960724,
+                                                        test_size=0.1, shuffle=True)
+
+xtrain_tfi, xvalid_tfi, ytrain, yvalid = train_test_split(train_tfi, star,
+                                                          stratify=star,
+                                                          random_state=960724,
+                                                          test_size=0.1, shuffle=True)
+
+xtrain_ct = Normalizer().fit_transform(xtrain_ct)
+clf = LogisticRegression(multi_class='multinomial', solver='sag',
+                         random_state=960724, verbose=1).fit(xtrain_ct, ytrain)
+ct_pred = clf.predict(Normalizer().fit_transform(xvalid_ct))
+np.sqrt(np.mean((ct_pred.astype(int) - yvalid.astype(int)) ^ 2))
 
