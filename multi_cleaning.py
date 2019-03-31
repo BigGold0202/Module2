@@ -46,7 +46,7 @@ def multi_rev(data):
     return data
 
 
-num_cores = 10  # number of cores on your machine
+num_cores = 12  # number of cores on your machine
 
 
 def parallelize_dataframe(df, func):
@@ -59,18 +59,19 @@ def parallelize_dataframe(df, func):
 
 
 if __name__ == '__main__':
-    rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\review_test.json', lines=True,
-                            orient='records')
-    print('done reading ')
+    for i in range(9):
+        rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev0' + str(i), lines=True,
+                                orient='records')
+        print('done reading ' + str(i))
 
-    print('start cleaning ')
-    start = time.time()
-    rev_data = parallelize_dataframe(rev_data, multi_rev)
-    end = time.time()
-    print('done ')
-    print(end - start)
-    rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\test_clean.csv', index=False)
-
+        print('start cleaning ' + str(i))
+        start = time.time()
+        rev_data = parallelize_dataframe(rev_data, multi_rev)
+        end = time.time()
+        print('done ' + str(i))
+        print(end - start)
+        rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clean' + str(i) + '.csv', index=False)
+        del rev_data
 
 
 
