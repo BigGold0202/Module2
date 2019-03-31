@@ -18,9 +18,14 @@ def wordnet_pos(x):
 
 
 def sent_tokenize(x):   # have trouble with double negation, input a df
-    stopword = set(stopwords.words('english')) - {'he', 'him', 'his', 'himself',
-                                                  'she', 'her', "she's", 'her', 'hers', 'herself',
-                                                  'they', 'them', 'their', 'theirs', 'themselves'}
+    stopword = stopwords.words('english') + [':', '-', '>', ')', ';', '[', '"', '*', '!', '~',
+                                             "'", '^', '=', '%', '<', '_', '@', '+', '`', '#',
+                                             '{', '?', ']', '|', '/', '\\', '$', '&', '}', '(',
+                                             '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+    stopword = set(stopword) - {'he', 'him', 'his', 'himself',
+                                'she', 'her', "she's", 'her', 'hers', 'herself',
+                                'they', 'them', 'their', 'theirs', 'themselves'}
+
     lmtzer = WordNetLemmatizer()
     # tokenizer = RegexpTokenizer(r'\w+')
     x = x.lower()
@@ -31,7 +36,7 @@ def sent_tokenize(x):   # have trouble with double negation, input a df
     word = [i for i in word if i not in stopword]
     word_tag = nltk.pos_tag(word)
     lmt_word = [lmtzer.lemmatize(i_pair[0], pos=wordnet_pos(i_pair[1])) for i_pair in word_tag]
-    lmt_word = " ".join(lmt_word)
+    lmt_word = re.sub("n't", 'not', " ".join(lmt_word))
     return lmt_word
 
 
@@ -53,7 +58,7 @@ def parallelize_dataframe(df, func):
 
 
 if __name__ == '__main__':
-    rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\review_sample.json', lines=True,
+    rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\review_test.json', lines=True,
                             orient='records')
     print('done reading ')
 
@@ -63,4 +68,9 @@ if __name__ == '__main__':
     end = time.time()
     print('done')
     print(end - start)
-    rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\sample_cleancsv', index=False)
+    rev_data.to_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\test_clean.csv', index=False)
+
+
+
+
+
