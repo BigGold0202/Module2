@@ -7,6 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.preprocessing import scale, Normalizer
+import lightgbm as lgb
 
 
 def split_token(x):
@@ -59,6 +60,7 @@ print('done selection')
 ind = np.isin(test_ct_word, final_word)
 test_ct = test_ct[:, ind]
 
+# =======logReg===========================================================
 xtrain_ct, xvalid_ct, ytrain, yvalid = train_test_split(train_ct, star,
                                                         stratify=star,
                                                         random_state=960724,
@@ -72,3 +74,54 @@ ct_pred = clf.predict(Normalizer().fit_transform(test_ct))
 
 res = pd.DataFrame({'ID':id, 'Expected':ct_pred})
 res.to_csv('outcome.csv', index=False)
+
+# ===============LGBM========================================================
+star = star.astype(int) - 1
+
+xtrain_ct, xvalid_ct, ytrain, yvalid = train_test_split(train_ct, star,
+                                                        stratify=star,
+                                                        random_state=960724,
+                                                        test_size=0.2, shuffle=True)
+
+lg_train = lgb.Dataset(xtrain_ct.astype(np.float64), label=ytrain)
+lg_val = lg_train.create_valid(xvalid_ct.astype(np.float64), label=yvalid)
+lg_test = lgb.Dataset(test_ct)
+
+param = {'objective': 'multiclass', 'task': 'train', 'num_threads': 4, 'seed': 960724,
+         'early_stopping_round': 50, 'verbosity': 1, 'num_class': 5,
+         'learning_rate': 0.1, 'num_leaves': 31, 'max_depth': -1,
+         'feature_fraction': 0.8, 'bagging_fraction': 0.8}
+
+lg_model = lgb.train(params=param, train_set=lg_train, valid_sets=lg_val, num_boost_round=200)
+
+lg_pred = lg_model.predict(test_ct.astype(np.float64))
+
+lg_res = [np.argsort(-1 * lg_pred[i, :], )[0] + 1 for i in range(lg_pred.shape[0])]
+lg_res = pd.DataFrame({'ID': id, 'Expected': lg_res})
+
+lg_res.to_csv('lg.csv', index=False)
+
+
+# ==============tfidf=========================================================================
+tfi = TfidfVectorizer(tokenizer=split_token, stop_words=['.', 'not'])
+
+train_tfi = tfi.fit_transform(rev_train.text)
+train_tfi_word = tfi.get_feature_names()
+ind = np.isin(train_tfi_word, final_word)
+train_tfi = train_tfi[:, ind]
+train_tfi_word = np.array(train_tfi_word)[ind]
+
+test_tfi = tfi.fit_transform(rev_test.text)
+test_tfi_word = tfi.get_feature_names()
+ind = np.isin(test_tfi_word, final_word)
+test_tfi = test_tfi[:, ind]
+test_tfi_word = np.array(test_tfi_word)[ind]
+
+train_tfi = Normalizer().fit_transform(train_tfi)
+test_tfi = Normalizer().fit_transform(test_tfi)
+
+del rev_test, rev_train
+clf = LogisticRegression(multi_class='multinomial', solver='sag',
+                         random_state=960724, verbose=1).fit(train_tfi, star)
+
+
