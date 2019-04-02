@@ -34,10 +34,6 @@ brun_data = bus_data.iloc[brunch_col, ].reset_index(drop=True)
 brun_col = [i for i in range(review_data.shape[0]) if review_data.business_id[i] in brun_id]
 brun_review = review_data.iloc[brun_col, ].reset_index(drop=True)
 
-
-brun_review = brun_review.split(" ")
-
-
 def check_word(text):
     new_review = []
     text = str(text)
@@ -47,7 +43,7 @@ def check_word(text):
         if word in sentence:
             new_review.append(sentence)
     return new_review
-word = "mexican"
+word = "egg"
 brun_review_id = brun_review.business_id
 brun_review_id = list(brun_review_id)
 word_review = brun_review.text.apply(check_word)
@@ -87,3 +83,4 @@ for id_temp in brunch_id:
     word_id_review.review[j] = id_word_review
     j = j + 1
     
+word_id_review.to_csv(r'C:\Frank Zhou\UM-MADISON\4\628\Module2\data\egg.csv')
