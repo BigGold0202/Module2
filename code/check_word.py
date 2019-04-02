@@ -35,13 +35,6 @@ brun_col = [i for i in range(review_data.shape[0]) if review_data.business_id[i]
 brun_review = review_data.iloc[brun_col, ].reset_index(drop=True)
 
 
-rest_id = [bus_data.business_id[i] for i in range(len(bus_categories)) if 'restaurants' in bus_categories[i]]
-restau_id = [i for i in range(len(bus_categories)) if 'restaurants' in bus_categories[i]]
-rest_data = bus_data.iloc[restau_id, ].reset_index(drop=True)
-rest_col = [i for i in range(review_data.shape[0]) if review_data.business_id[i] in rest_id]
-rest_review = review_data.iloc[rest_col, ].reset_index(drop=True)
-
-
 brun_review = brun_review.split(" ")
 
 
