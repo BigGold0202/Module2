@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.feature_selection import SelectKBest, chi2, SelectFromModel
 from sklearn.feature_selection import mutual_info_classif
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, GridSearchCV, learning_curve
@@ -16,12 +16,30 @@ def split_token(x):
     return x.split(' ')
 
 
-def var_selection(stat, word, n):
+def var_selection(stat, star, word, n):
     chi_select, chi_p = chi2(stat, star)
     chi_res = pd.DataFrame({'word': word, 'score': chi_select, 'p-value': chi_p})
-    chi_res = chi_res.sort_values(by='score', ascending=False).iloc[:n, :]
-    print('done chi')
-    return chi_res  # , minfo_res, rf_res
+    res = chi_res.sort_values(by='score', ascending=False).iloc[:n, :]
+    return res  # , minfo_res, rf_res
+
+
+def rf_select(stat, star, word, n, name, plot=True, n_estimators=100):
+    sel = RandomForestClassifier(n_estimators=n_estimators, verbose=2, n_jobs=4)
+    sel.fit(stat, star)
+
+    imp_sc = sel.feature_importances_
+    ind = np.argsort(-1 * imp_sc)
+    imp_sc = imp_sc[ind][:n]
+    word = word[ind][:n]
+    res = pd.DataFrame({'word': word, 'score': imp_sc})
+
+    if plot is True:
+        plt.title('Feature Importances' + name)
+        plt.barh(range(n), imp_sc[::-1], color='b', align='center')
+        plt.yticks(range(n), word[::-1])
+        plt.xlabel('Relative Importance')
+        plt.show()
+    return res
 
 
 def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None,
@@ -57,7 +75,7 @@ def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None,
 rev_test = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\test_clean.csv')
 rev_test.text[rev_test.text.isna()] = 'na'
 
-rev_train = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clean.csv', low_memory=False)
+rev_train = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clean.csv', low_memory=False, nrows=100000)
 rev_train.text[rev_train.text.isna()] = 'na'
 
 print('done reading')
@@ -88,45 +106,76 @@ rev_test = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\test_clea
 rev_test.text[rev_test.text.isna()] = 'na'
 kid = rev_test.KaggleID
 
-rev_train = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clean.csv', low_memory=False)
+rev_train = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clean.csv', low_memory=False, nrows=100000)
 star = rev_train.stars
 rev_train.text[rev_train.text.isna()] = 'na'
 
 # ==============count====================================================================
 vec = CountVectorizer(tokenizer=split_token, stop_words=['.', 'not'])
 train_ct = vec.fit_transform(rev_train.text)
-train_ct_word = vec.get_feature_names()
+train_ct_word = np.array(vec.get_feature_names())
 
 test_ct = vec.fit_transform(rev_test.text)
-test_ct_word = vec.get_feature_names()
+test_ct_word = np.array(vec.get_feature_names())
 
 ind = np.isin(train_ct_word, final_word)
 train_ct = train_ct[:, ind]
-train_ct_word = np.array(train_ct_word)[ind]
+train_ct_word = train_ct_word[ind]
 
 ind = np.isin(test_ct_word, final_word)
 test_ct = test_ct[:, ind]
-test_ct_word = np.array(test_ct_word)[ind]
+test_ct_word = test_ct_word[ind]
 
 # ====================tfidf===============================================
 tfi = TfidfVectorizer(tokenizer=split_token, stop_words=['.', 'not'])
 
 train_tfi = tfi.fit_transform(rev_train.text)
-train_tfi_word = tfi.get_feature_names()
+train_tfi_word = np.array(tfi.get_feature_names())
+
 ind = np.isin(train_tfi_word, final_word)
 train_tfi = train_tfi[:, ind]
-train_tfi_word = np.array(train_tfi_word)[ind]
+train_tfi_word = train_tfi_word[ind]
 
 test_tfi = tfi.fit_transform(rev_test.text)
-test_tfi_word = tfi.get_feature_names()
+test_tfi_word = np.array(tfi.get_feature_names())
 ind = np.isin(test_tfi_word, final_word)
 test_tfi = test_tfi[:, ind]
-test_tfi_word = np.array(test_tfi_word)[ind]
+test_tfi_word = test_tfi_word[ind]
 
 # ========Normalization====================================================
 del rev_train, rev_test
 train_tfi_N = Normalizer().fit_transform(train_tfi)
 test_tfi_N = Normalizer().fit_transform(test_tfi)
+
+# ============rf selection=====================================================
+test_word = np.array(pd.read_csv('test_ct_word.csv')).reshape(-1)
+
+ind = np.isin(train_ct_word, test_word)
+train_ct = train_ct[:, ind]
+train_ct_word = np.array(train_ct_word)[ind]
+
+# ============================tfidf=======================================
+ind = np.isin(train_tfi_word, test_word)
+train_tfi = train_tfi[:, ind]
+train_tfi_word = np.array(train_tfi_word)[ind]
+
+sel = RandomForestClassifier(n_estimators=100, verbose=2, n_jobs=4)
+sel.fit(train_tfi, star)
+
+n = 50
+
+imp_sc = sel.feature_importances_
+ind = np.argsort(-1 * imp_sc)
+word = train_tfi_word[ind][:n]
+imp_sc = imp_sc[ind][:n]
+
+plt.title('Feature Importances')
+plt.barh(range(n), imp_sc[::-1], color='b', align='center')
+plt.yticks(range(n), word[::-1])
+plt.xlabel('Relative Importance')
+
+rf_res = rf_select(train_tfi, star, train_tfi_word, 2000, 'tfi', plot=False)
+rf_res_N = rf_select(train_tfi_N, star, train_tfi_word, 2000, 'tfi_N', plot=False)
 
 # =======logReg===========================================================
 xtrain_ct, xvalid_ct, ytrain, yvalid = train_test_split(train_ct, star,
