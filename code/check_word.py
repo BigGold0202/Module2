@@ -41,7 +41,10 @@ def check_word(text):
     text = text.split(".")
     for sentence in text:
         if word in sentence:
-            new_review.append(sentence)
+            temp = sentence.split(" ")
+            for w in temp:
+                if w == word:
+                    new_review.append(sentence)
     return new_review
 word = "egg"
 brun_review_id = brun_review.business_id
