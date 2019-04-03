@@ -35,7 +35,7 @@ brun_col = [i for i in range(review_data.shape[0]) if review_data.business_id[i]
 brun_review = review_data.iloc[brun_col, ].reset_index(drop=True)
 
 def check_word(text):
-    new_review = []
+    new_review = [] 
     text = str(text)
     text = re.sub("[:!]",".",text)
     text = text.split(".")
@@ -49,6 +49,7 @@ def check_word(text):
 
 word_list = ['sandwich','fry','cheese','salad','pancake','burger','bacon','potato','waffle','sauce','bread','dessert','steak','cream','taco','meat','cake','crepe','beef','benedict']
 for word in word_list:
+#word = "egg"
     brun_review_id = brun_review.business_id
     brun_review_id = list(brun_review_id)
     word_review = brun_review.text.apply(check_word)
@@ -89,4 +90,3 @@ for word in word_list:
             j = j + 1
 
     word_id_review.to_csv(r"C:\Frank Zhou\UM-MADISON\4\628\Module2\data\word" + word + '.csv')
-
