@@ -20,26 +20,29 @@ def var_selection(stat, star, word, n):
     chi_select, chi_p = chi2(stat, star)
     chi_res = pd.DataFrame({'word': word, 'score': chi_select, 'p-value': chi_p})
     res = chi_res.sort_values(by='score', ascending=False).iloc[:n, :]
-    return res  # , minfo_res, rf_res
+    return res
 
 
-def rf_select(stat, star, word, n, name, plot=True, n_estimators=100):
+def rf_select(stat, star, word, n_estimators=100):
     sel = RandomForestClassifier(n_estimators=n_estimators, verbose=2, n_jobs=4)
     sel.fit(stat, star)
 
     imp_sc = sel.feature_importances_
     ind = np.argsort(-1 * imp_sc)
-    imp_sc = imp_sc[ind][:n]
-    word = word[ind][:n]
+    imp_sc = imp_sc[ind]
+    word = word[ind]
     res = pd.DataFrame({'word': word, 'score': imp_sc})
-
-    if plot is True:
-        plt.title('Feature Importances' + name)
-        plt.barh(range(n), imp_sc[::-1], color='b', align='center')
-        plt.yticks(range(n), word[::-1])
-        plt.xlabel('Relative Importance')
-        plt.show()
     return res
+
+
+def plot_rf(res, n, name):
+    imp_sc = res.score
+    word = res.word
+    plt.title('Feature Importances' + name)
+    plt.barh(range(n), imp_sc[::-1], color='b', align='center')
+    plt.yticks(range(n), word[::-1])
+    plt.xlabel('Relative Importance')
+    plt.show()
 
 
 def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None,
@@ -72,10 +75,63 @@ def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None,
     return plt
 
 
+def data_prep(word_list, n, mode):
+    vec = CountVectorizer(tokenizer=split_token, stop_words=['.'])
+    tfi = TfidfVectorizer(tokenizer=split_token, stop_words=['.'])
+
+    if mode == 'test':
+        rev_test = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\test_clean.csv')
+        rev_test.text[rev_test.text.isna()] = 'na'
+        print('done reading')
+        other = rev_test.KaggleID
+        test_ct = vec.fit_transform(rev_test.text)
+        print('done ct')
+
+        test_ct_word = np.array(vec.get_feature_names())
+        ind = np.isin(test_ct_word, word_list)
+        test_ct = test_ct[:, ind]
+        test_ct_word = test_ct_word[ind]
+
+        test_tfi = tfi.fit_transform(rev_test.text)
+        print('done tfi')
+
+        test_tfi_word = np.array(tfi.get_feature_names())
+        ind = np.isin(test_tfi_word, final_word)
+        test_tfi = test_tfi[:, ind]
+        test_tfi_word = test_tfi_word[ind]
+
+        return test_ct, test_ct_word, test_tfi, test_tfi_word, other
+    elif mode == 'train':
+        rev_train = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clean.csv', low_memory=False,
+                                nrows=n)
+        other = rev_train.stars
+        rev_train.text[rev_train.text.isna()] = 'na'
+        print('done reading')
+
+        train_ct = vec.fit_transform(rev_train.text)
+        print('done ct')
+
+        train_ct_word = np.array(vec.get_feature_names())
+
+        ind = np.isin(train_ct_word, word_list)
+        train_ct = train_ct[:, ind]
+        train_ct_word = train_ct_word[ind]
+
+        train_tfi = tfi.fit_transform(rev_train.text)
+        print('done tfi')
+
+        train_tfi_word = np.array(tfi.get_feature_names())
+
+        ind = np.isin(train_tfi_word, final_word)
+        train_tfi = train_tfi[:, ind]
+        train_tfi_word = train_tfi_word[ind]
+        return train_ct, train_ct_word, train_tfi, train_tfi_word, other
+
+
 rev_test = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\test_clean.csv')
 rev_test.text[rev_test.text.isna()] = 'na'
 
-rev_train = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clean.csv', low_memory=False, nrows=100000)
+rev_train = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clean.csv', low_memory=False)
 rev_train.text[rev_train.text.isna()] = 'na'
 
 print('done reading')
@@ -100,13 +156,13 @@ final_word = train_ct_chi.word
 np.savetxt('final_word.csv', final_word, header='word', fmt='%s')
 # =========begin again====================================================================================
 # ============read==============================================================================
-final_word = np.array(pd.read_csv('final_word.csv')).reshape(-1)
+final_word = np.array(pd.read_csv('rf_word.csv', header=None)).reshape(-1)
 
 rev_test = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\test_clean.csv')
 rev_test.text[rev_test.text.isna()] = 'na'
 kid = rev_test.KaggleID
 
-rev_train = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clean.csv', low_memory=False, nrows=100000)
+rev_train = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clean.csv', low_memory=False)
 star = rev_train.stars
 rev_train.text[rev_train.text.isna()] = 'na'
 
@@ -174,8 +230,17 @@ plt.barh(range(n), imp_sc[::-1], color='b', align='center')
 plt.yticks(range(n), word[::-1])
 plt.xlabel('Relative Importance')
 
-rf_res = rf_select(train_tfi, star, train_tfi_word, 2000, 'tfi', plot=False)
-rf_res_N = rf_select(train_tfi_N, star, train_tfi_word, 2000, 'tfi_N', plot=False)
+rf_res = rf_select(train_tfi, star, train_tfi_word)
+rf_res0 = rf_select(train_tfi, star, train_tfi_word, 10)
+len(set(rf_res.word[:2000]) & set(rf_res0.word[:2000]))
+rf_res_N = rf_select(train_tfi_N, star, train_tfi_word)
+len(set(rf_res.word[:2000]) & set(rf_res_N.word[:2000]))
+
+plot_learning_curve(RandomForestClassifier(n_estimators=100, verbose=2), 'full rf', cv=4, n_jobs=4, X=train_tfi_N, y=star)
+
+rf_word = rf_res_N.word[:2000]
+rf_word.to_csv('rf_word.csv', index=False, header=False)
+
 
 # =======logReg===========================================================
 xtrain_ct, xvalid_ct, ytrain, yvalid = train_test_split(train_ct, star,
@@ -251,8 +316,10 @@ print(gsearch1.best_score_)
 tfi_pred = clf.predict(xvalid_tfi)
 print(accuracy_score(yvalid, tfi_pred))  # 0.669
 
+tfi_pred = clf.fit(train_tfi_N, star).predict(test_tfi_N)
 
-res = pd.DataFrame({'ID': id, 'Expected': tfi_pred})
+
+res = pd.DataFrame({'ID': kid, 'Expected': tfi_pred})
 res.to_csv('tfi_outcome.csv', index=False)
 
 # ========LGBM tfidf======================================================
