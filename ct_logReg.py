@@ -1,12 +1,11 @@
 import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from sklearn.feature_selection import SelectKBest, chi2, SelectFromModel
-from sklearn.feature_selection import mutual_info_classif
+from sklearn.feature_selection import chi2
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, GridSearchCV, learning_curve
-from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
-from sklearn.preprocessing import scale, Normalizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import Normalizer
 from sklearn.metrics import accuracy_score
 import lightgbm as lgb
 import matplotlib.pyplot as plt
@@ -128,6 +127,8 @@ def data_prep(word_list, n, mode):
         return train_ct, train_ct_word, train_tfi, train_tfi_word, other
 
 
+# perform chi square selection
+# read data
 rev_test = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\test_clean.csv')
 rev_test.text[rev_test.text.isna()] = 'na'
 
@@ -135,6 +136,25 @@ rev_train = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clea
 rev_train.text[rev_train.text.isna()] = 'na'
 
 print('done reading')
+
+# select words that frequently appear in test data
+vec = CountVectorizer(tokenizer=split_token, stop_words=['.', 'not'])
+test_ct = vec.fit_transform(rev_test.text)
+test_ct_word = vec.get_feature_names()
+test_ct_sum = np.array(test_ct.mean(axis=0))[0]
+plt.hist(test_ct_sum[(0.001 > test_ct_sum) & (test_ct_sum>0.0001)])         # use plot to check distribution
+test_ct_res = pd.DataFrame({'word': test_ct_word, 'count_sum': test_ct_sum})
+test_ct_res.sort_values(by='count_sum', ascending=False, inplace=True)
+# np.quantile(test_count_sum, [0.85, 0.9, 0.95, 0.96, 0.975]) = 7, 14, 53, 80, 191
+# ind = test_ct_sum > np.quantile(test_ct_sum, n)
+
+ind = test_ct_sum >= 0.0005             # mean occurrence large than 0.0005
+test_ct = test_ct[:, ind]
+test_ct_word = np.array(test_ct_word)[ind]
+np.savetxt('test_ct_word.csv', test_ct_word, header='word', fmt='%s')
+
+
+# read pre-selected words (based on counts
 test_word = np.array(pd.read_csv('test_ct_word.csv')).reshape(-1)
 
 vec = CountVectorizer(tokenizer=split_token, stop_words=['.', 'not'])
