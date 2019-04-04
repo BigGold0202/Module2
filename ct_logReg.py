@@ -74,59 +74,6 @@ def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None,
     return plt
 
 
-def data_prep(word_list, n, mode):
-    vec = CountVectorizer(tokenizer=split_token, stop_words=['.'])
-    tfi = TfidfVectorizer(tokenizer=split_token, stop_words=['.'])
-
-    if mode == 'test':
-        rev_test = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\test_clean.csv')
-        rev_test.text[rev_test.text.isna()] = 'na'
-        print('done reading')
-        other = rev_test.KaggleID
-        test_ct = vec.fit_transform(rev_test.text)
-        print('done ct')
-
-        test_ct_word = np.array(vec.get_feature_names())
-        ind = np.isin(test_ct_word, word_list)
-        test_ct = test_ct[:, ind]
-        test_ct_word = test_ct_word[ind]
-
-        test_tfi = tfi.fit_transform(rev_test.text)
-        print('done tfi')
-
-        test_tfi_word = np.array(tfi.get_feature_names())
-        ind = np.isin(test_tfi_word, final_word)
-        test_tfi = test_tfi[:, ind]
-        test_tfi_word = test_tfi_word[ind]
-
-        return test_ct, test_ct_word, test_tfi, test_tfi_word, other
-    elif mode == 'train':
-        rev_train = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clean.csv', low_memory=False,
-                                nrows=n)
-        other = rev_train.stars
-        rev_train.text[rev_train.text.isna()] = 'na'
-        print('done reading')
-
-        train_ct = vec.fit_transform(rev_train.text)
-        print('done ct')
-
-        train_ct_word = np.array(vec.get_feature_names())
-
-        ind = np.isin(train_ct_word, word_list)
-        train_ct = train_ct[:, ind]
-        train_ct_word = train_ct_word[ind]
-
-        train_tfi = tfi.fit_transform(rev_train.text)
-        print('done tfi')
-
-        train_tfi_word = np.array(tfi.get_feature_names())
-
-        ind = np.isin(train_tfi_word, final_word)
-        train_tfi = train_tfi[:, ind]
-        train_tfi_word = train_tfi_word[ind]
-        return train_ct, train_ct_word, train_tfi, train_tfi_word, other
-
-
 # perform chi square selection
 # read data
 rev_test = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\test_clean.csv')
@@ -145,16 +92,13 @@ test_ct_sum = np.array(test_ct.mean(axis=0))[0]
 plt.hist(test_ct_sum[(0.001 > test_ct_sum) & (test_ct_sum>0.0001)])         # use plot to check distribution
 test_ct_res = pd.DataFrame({'word': test_ct_word, 'count_sum': test_ct_sum})
 test_ct_res.sort_values(by='count_sum', ascending=False, inplace=True)
-# np.quantile(test_count_sum, [0.85, 0.9, 0.95, 0.96, 0.975]) = 7, 14, 53, 80, 191
-# ind = test_ct_sum > np.quantile(test_ct_sum, n)
 
 ind = test_ct_sum >= 0.0005             # mean occurrence large than 0.0005
 test_ct = test_ct[:, ind]
 test_ct_word = np.array(test_ct_word)[ind]
 np.savetxt('test_ct_word.csv', test_ct_word, header='word', fmt='%s')
 
-
-# read pre-selected words (based on counts
+# read pre-selected words (based on counts)
 test_word = np.array(pd.read_csv('test_ct_word.csv')).reshape(-1)
 
 vec = CountVectorizer(tokenizer=split_token, stop_words=['.', 'not'])
@@ -170,6 +114,7 @@ ind = np.isin(train_ct_word, test_word)
 train_ct = train_ct[:, ind]
 train_ct_word = np.array(train_ct_word)[ind]
 
+# perfrm chi square selection
 train_ct_chi = var_selection(train_ct, train_ct_word, 2000)
 final_word = train_ct_chi.word
 
@@ -230,7 +175,7 @@ ind = np.isin(train_ct_word, test_word)
 train_ct = train_ct[:, ind]
 train_ct_word = np.array(train_ct_word)[ind]
 
-# ============================tfidf=======================================
+# ============================tfidf based rf=======================================
 ind = np.isin(train_tfi_word, test_word)
 train_tfi = train_tfi[:, ind]
 train_tfi_word = np.array(train_tfi_word)[ind]
@@ -262,7 +207,7 @@ rf_word = rf_res_N.word[:2000]
 rf_word.to_csv('rf_word.csv', index=False, header=False)
 
 
-# =======logReg===========================================================
+# =======logReg on count===========================================================
 xtrain_ct, xvalid_ct, ytrain, yvalid = train_test_split(train_ct, star,
                                                         stratify=star,
                                                         random_state=960724,
@@ -277,7 +222,7 @@ ct_pred = clf.predict(Normalizer().fit_transform(test_ct))
 res = pd.DataFrame({'ID': kid, 'Expected': ct_pred})
 res.to_csv('outcome.csv', index=False)
 
-# ===============LGBM count========================================================
+# ===============LGBM count (more tuning needed)========================================================
 star = star.astype(int) - 1
 
 xtrain_ct, xvalid_ct, ytrain, yvalid = train_test_split(train_ct, star,
@@ -313,7 +258,7 @@ lg_res = pd.DataFrame({'ID': kid, 'Expected': lg_res})
 lg_res.to_csv('lg.csv', index=False)
 
 
-# ============logReg==tfidf=========================================================================
+# ============logReg on tfidf=========================================================================
 xtrain_tfi, xvalid_tfi, ytrain, yvalid = train_test_split(train_tfi_N, star,
                                                           stratify=star,
                                                           random_state=960724,
@@ -342,7 +287,7 @@ tfi_pred = clf.fit(train_tfi_N, star).predict(test_tfi_N)
 res = pd.DataFrame({'ID': kid, 'Expected': tfi_pred})
 res.to_csv('tfi_outcome.csv', index=False)
 
-# ========LGBM tfidf======================================================
+# ========LGBM tfidf========(more tuning needed)==============================================
 xtrain_tfi, xvalid_tfi, ytrain, yvalid = train_test_split(train_tfi, star,
                                                           stratify=star,
                                                           random_state=960724,
@@ -361,7 +306,7 @@ for i in [60, 80]:
     tmp_model = lgb.train(params=param_tmp, train_set=lg_train, valid_sets=lg_val, num_boost_round=200)
     model_list.append(tmp_model)
 
-# ===========tfidf Random Forest=====================================================
+# ===========tfidf Random Forest=======(more tuning needed)==============================================
 xtrain_tfi, xvalid_tfi, ytrain, yvalid = train_test_split(train_tfi_N, star,
                                                           stratify=star,
                                                           random_state=960724,
@@ -380,7 +325,7 @@ plot_learning_curve(rf, 'randomF', cv=5, n_jobs=5, X=xtrain_tfi, y=ytrain)
 rf_pred = rf.predict(xvalid_tfi)
 print(accuracy_score(yvalid, rf_pred))
 
-param = {'n_estimators': range(170, 300, 30)}
+param = {'n_estimators': range(170, 300, 30)}       # grid search
 gsearch1 = GridSearchCV(estimator=RandomForestClassifier(verbose=2, n_jobs=4),
                         param_grid=param, scoring='accuracy', cv=2, n_jobs=1)
 
