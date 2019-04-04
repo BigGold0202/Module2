@@ -9,15 +9,18 @@ import re
 import time
 from nltk.corpus import stopwords
 
+# use parallel computing to perform data cleaning
 
-def wordnet_pos(x):
+
+def wordnet_pos(x):                                # a function to denote position of speech for lemmatization
     if x.startswith('V'):
         return wordnet.VERB
     else:
         return wordnet.NOUN
 
 
-def sent_tokenize(x):   # have trouble with double negation, input a df
+def sent_tokenize(x):
+    # this function is the main tokenizer for data cleaning
     stopword = set(stopwords.words('english')) - {'he', 'him', 'his', 'himself', 'not', 'no', 'nor',
                                                   'she', 'her', "she's", 'her', 'hers', 'herself',
                                                   'they', 'them', 'their', 'theirs', 'themselves'}
@@ -28,16 +31,12 @@ def sent_tokenize(x):   # have trouble with double negation, input a df
     temp = re.sub(",", '.', x)
     temp = re.sub('n\'t', ' not', temp)
     word = re.findall('[a-zA-Z]+|:\)|\.\.\.+|[!]+|\!\?|\.', temp)
-    # x = re.sub(',', '.', x)
-    # word = tokenizer.tokenize(x)
-    # word = nltk.word_tokenize(x)
-    word = [i for i in word if i not in stopword]
+    word = [i for i in word if i not in stopword]           # delete stopwords
     word = mark_negation(word)
 
-    word_tag = nltk.pos_tag(word)
+    word_tag = nltk.pos_tag(word)                   # lemmatization, very time consuming
     lmt_word = [lmtzer.lemmatize(i_pair[0], pos=wordnet_pos(i_pair[1])) for i_pair in word_tag]
-    # lmt_word = re.sub("n't", 'not', " ".join(lmt_word))
-    lmt_word = " ".join(lmt_word)
+    lmt_word = " ".join(lmt_word)          # combine with space, easy for other use
     return lmt_word
 
 
@@ -46,10 +45,10 @@ def multi_rev(data):
     return data
 
 
-num_cores = 12  # number of cores on your machine
+num_cores = 12  # number of cpu cores
 
 
-def parallelize_dataframe(df, func):
+def parallelize_dataframe(df, func):        # the preparation for parallel processing
     df = np.array_split(df, num_cores)
     pool = Pool(num_cores)
     df = pd.concat(pool.map(func, df))
@@ -58,8 +57,8 @@ def parallelize_dataframe(df, func):
     return df
 
 
-if __name__ == '__main__':
-    for i in range(9):
+if __name__ == '__main__':          # perform parallel cleaning process
+    for i in range(9):                  # slice the original data into 9 pieces use linux shell to save RAM
         rev_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev0' + str(i), lines=True,
                                 orient='records')
         print('done reading ' + str(i))
