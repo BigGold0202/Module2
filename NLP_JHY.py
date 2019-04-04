@@ -81,6 +81,11 @@ x = toy_sample.text.iloc[0]
 
 # =====mark negation================================================================
 # ======find burnch review===============================================================
+rev_data = pd.read_csv(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\rev_clean.csv')
+busi_data = pd.read_json(r'D:\OneDrive - UW-Madison\Module2\Data_Module2\business_train.json',
+                         orient='records', lines=True)
+
+
 bus_sp = []
 for i in range(busi_data.shape[0]):
     if busi_data.categories[i] is not None:
@@ -93,6 +98,9 @@ brun_id = [i for i in range(len(bus_sp)) if 'Brunch' in bus_sp[i]]  # 160796
 brun_data = busi_data.iloc[brun_id, ]
 brun_rev = rev_data.loc[rev_data.business_id.isin(brun_data.business_id)].reset_index(drop=True)
 
+# brun_star = brun_rev.drop(['text', 'date'], axis=1)
+brun_star = brun_rev.groupby(['business_id']).mean()
+brun_data = brun_data.merge(brun_star)
 
 # =====use business data===============================================================
 # compare difference in attributes
