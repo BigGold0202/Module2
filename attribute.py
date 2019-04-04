@@ -2,27 +2,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import nltk
-from nltk.sentiment.util import mark_negation
-from nltk.stem import WordNetLemmatizer
-from nltk.stem import PorterStemmer
-from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from nltk.corpus import wordnet
-from nltk.corpus import stopwords
-import re
 import ast
-import sys
-from sklearn.feature_selection import SelectKBest, chi2
-from nltk.tokenize import RegexpTokenizer
-from multi_cleaning import sent_tokenize
-import string
-from sklearn.feature_selection import mutual_info_classif
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression, LogisticRegressionCV, LinearRegression
-from sklearn.preprocessing import scale, Normalizer
-import statsmodels.api as sm
+from sklearn.linear_model import LinearRegression
 import statsmodels.formula.api as smf
 
 
@@ -86,6 +69,7 @@ def plot_rf(res, n, name):
     plt.show()
 
 
+# select brunch attributes
 bus_sp = []
 for i in range(busi_data.shape[0]):
     if busi_data.categories[i] is not None:
@@ -96,15 +80,16 @@ for i in range(busi_data.shape[0]):
 brun_id = [i for i in range(len(bus_sp)) if 'Brunch' in bus_sp[i]]  # 160796
 brun_data = busi_data.iloc[brun_id, ]
 
+# process attributes and statistics shows how many NA
 brun_slice, brun_slice_stat = atb_process(brun_data.attributes, 'slice')
 brun_slice['business_id'] = brun_data.business_id.values
 brun_slice = brun_slice.drop(['BusinessParking', 'BestNights', 'GoodForMeal', 'Ambience', 'Music'], axis=1)
 brun_slice.to_csv('brun_slice.csv', index=False)
-# brun_sum, brun_sum_stat = atb_process(brun_data.attributes, 'sum')
+
 
 brun_star = brun_rev.iloc[:, 0:2]
-# brun_star = brun_rev.groupby(['business_id'], as_index=False).agg('mean')
 brun_slice = brun_slice.merge(brun_star, how='right')
+brun_slice.to_csv('brun_slice_mg.csv', index=False)
 
 
 # =============rf selection======================================================
@@ -129,12 +114,11 @@ for i in range(atb_x.shape[1]):
     atb_x.iloc[:, i] = le.fit_transform(atb_x.iloc[:, i])
 
 atb_rf = rf_select(atb_x, brun_slice.stars, atb_x.columns, 100)
+plot_rf(atb_rf, 15, ' Brunch')
+atb_rf.word.to_csv(r'D:\OneDrive - UW-Madison\Module2\brunch_vi.csv', index=False, header=False)
 
 atb = brun_slice.drop(['business_id'], axis=1)
 
-
-# atb.fillna(0, inplace=True)
-# atb_score = [atb.loc[:,[atb_rf.word[i], 'stars']].groupby(atb_rf.word[i], as_index=False).mean() for i in range(20)]
 
 atb_score = []
 for i in range(20):
@@ -157,6 +141,7 @@ rest_slice0['business_id'] = rest_data.business_id.values
 rest_slice0 = rest_slice0.drop(['BusinessParking', 'BestNights', 'GoodForMeal', 'Ambience', 'Music'], axis=1)
 rest_slice = rest_slice0.merge(rev_star, how='right')
 rest_slice0.to_csv('rest_slice.csv', index=False)
+rest_slice.to_csv('rest_slice_me.csv', index=False)
 
 atb_rex = rest_slice.drop(['business_id', 'stars'], axis=1)
 atb_rex.fillna(np.nan, inplace=True)
@@ -167,13 +152,12 @@ for i in range(atb_rex.shape[1]):
     atb_rex.iloc[:, i] = le.fit_transform(atb_rex.iloc[:, i])
 
 atb_rf_res = rf_select(atb_rex, rest_slice.stars, atb_rex.columns, 100)
+plot_rf(atb_rf_res, 15, ' Restaurant')
+
+atb_rf_res.word.to_csv(r'D:\OneDrive - UW-Madison\Module2\rest_vi.csv', header=False, index=False)
 
 atb_res = rest_slice.drop(['business_id'], axis=1)
 
-
-# atb.fillna(0, inplace=True)
-# atb_score_res = [atb_res.loc[:, [atb_rf.word[i], 'stars']].groupby(atb_rf.word[i], as_index=False).mean()
-# for i in range(20)]
 
 atb_score_res = []
 for i in range(20):
@@ -192,17 +176,10 @@ for i in range(atb_one.shape[1]):
 ohe = OneHotEncoder(handle_unknown='error')
 tmp = brun_slice.loc[:, ["WiFi", 'stars']].dropna()
 atb_one = pd.get_dummies(tmp.iloc[:, 0])
-atb_one = pd.DataFrame(atb_one.toarray())
-atb_one.columns = ohe.get_feature_names()
-one_name = ohe.get_feature_names()
 
-atb_y = brun_slice.stars
-
-atb_rf_one = rf_select(atb_one, brun_slice.stars, one_name, 100)
-
+atb_y = tmp.stars
 
 reg = LinearRegression().fit(atb_one, atb_y)
-reg_coef = pd.DataFrame({'word': one_name, 'coef': reg.coef_})
 
 
 reg = smf.OLS(atb_y, atb_one).fit()
